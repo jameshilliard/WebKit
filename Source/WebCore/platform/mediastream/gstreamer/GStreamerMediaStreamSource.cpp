@@ -57,7 +57,7 @@ GST_DEBUG_CATEGORY_STATIC(webkitMediaStreamSrcDebug);
 
 GRefPtr<GstTagList> mediaStreamTrackPrivateGetTags(const MediaStreamTrackPrivate* track)
 {
-    auto tagList = adoptGRef(gst_tag_list_new_empty());
+    GRefPtr<GstTagList> tagList = adoptGRef(gst_tag_list_new_empty());
 
     if (!track->label().isEmpty())
         gst_tag_list_add(tagList.get(), GST_TAG_MERGE_APPEND, GST_TAG_TITLE, track->label().utf8().data(), nullptr);
@@ -75,7 +75,7 @@ GRefPtr<GstTagList> mediaStreamTrackPrivateGetTags(const MediaStreamTrackPrivate
     }
 
     GST_DEBUG("Track tags: %" GST_PTR_FORMAT, tagList.get());
-    return tagList.leakRef();
+    return tagList;
 }
 
 GstStream* webkitMediaStreamNew(MediaStreamTrackPrivate* track)
@@ -94,7 +94,7 @@ GstStream* webkitMediaStreamNew(MediaStreamTrackPrivate* track)
 
     auto* stream = gst_stream_new(track->id().utf8().data(), caps.get(), type, GST_STREAM_FLAG_SELECT);
     auto tags = mediaStreamTrackPrivateGetTags(track);
-    gst_stream_set_tags(stream, tags.leakRef());
+    gst_stream_set_tags(stream, tags.get());
     return stream;
 }
 
