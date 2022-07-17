@@ -1561,7 +1561,8 @@ TextStream& operator<<(TextStream& stream, const Position& position)
     stream << "Position " << &position;
 
     stream.dumpProperty("anchor node", position.anchorNode());
-    stream.dumpProperty("offset", position.offsetInContainerNode());
+    if (position.anchorType() == Position::PositionIsOffsetInAnchor)
+        stream.dumpProperty("offset", position.offsetInContainerNode());
     stream.dumpProperty("anchor type", position.anchorType());
 
     return stream;

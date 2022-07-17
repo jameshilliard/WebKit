@@ -181,6 +181,7 @@ MessageQueueWaitResult WorkerDedicatedRunLoop::runInMode(WorkerOrWorkletGlobalSc
 
 #if USE(GLIB)
     GMainContext* mainContext = g_main_context_get_thread_default();
+    ASSERT(mainContext);
     if (g_main_context_pending(mainContext))
         g_main_context_iteration(mainContext, FALSE);
 #endif
@@ -285,8 +286,7 @@ WorkerDedicatedRunLoop::Task::Task(ScriptExecutionContext::Task&& task, const St
 }
 
 WorkerMainRunLoop::WorkerMainRunLoop()
-{
-}
+= default;
 
 void WorkerMainRunLoop::setGlobalScope(WorkerOrWorkletGlobalScope& globalScope)
 {

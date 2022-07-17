@@ -584,7 +584,7 @@ private:
     
     int m_clickCount { 0 };
 
-    std::optional<IntPoint> m_lastKnownMousePosition; // Same coordinates as PlatformMouseEvent::position().
+    std::optional<IntPoint> m_lastKnownMousePosition { std::nullopt }; // Same coordinates as PlatformMouseEvent::position().
     IntPoint m_lastKnownMouseGlobalPosition;
     IntPoint m_mouseDownContentsPosition;
     WallTime m_mouseDownTimestamp;

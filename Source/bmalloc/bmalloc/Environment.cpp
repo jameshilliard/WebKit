@@ -34,9 +34,7 @@
 #include <dlfcn.h>
 #endif
 
-#if BOS(UNIX)
 #include "valgrind.h"
-#endif
 
 #if BPLATFORM(IOS_FAMILY) && !BPLATFORM(MACCATALYST) && !BPLATFORM(IOS_FAMILY_SIMULATOR)
 #define BUSE_CHECK_NANO_MALLOC 1
@@ -137,7 +135,7 @@ static bool isSanitizerEnabled()
 
 static bool isRunningOnValgrind()
 {
-#if BOS(UNIX)
+#ifndef NVALGRIND
     if (RUNNING_ON_VALGRIND)
         return true;
 #endif

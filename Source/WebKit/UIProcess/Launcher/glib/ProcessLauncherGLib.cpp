@@ -42,7 +42,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
-#if !USE(SYSTEM_MALLOC) && OS(LINUX)
+#if !USE(SYSTEM_MALLOC)
 #include <bmalloc/valgrind.h>
 #endif
 
@@ -143,7 +143,7 @@ void ProcessLauncher::launchProcess()
     if (sandboxEnv)
         sandboxEnabled = !strcmp(sandboxEnv, "1");
 
-#if !USE(SYSTEM_MALLOC)
+#if !USE(SYSTEM_MALLOC) && !defined(NVALGRIND)
     if (RUNNING_ON_VALGRIND)
         sandboxEnabled = false;
 #endif

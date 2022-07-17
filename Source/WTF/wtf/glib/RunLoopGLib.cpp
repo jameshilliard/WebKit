@@ -50,7 +50,9 @@ GSourceFuncs RunLoop::s_runLoopSourceFunctions = {
         const char* name = g_source_get_name(source);
         auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(source);
         runLoopSource.runLoop->notify(RunLoop::Event::WillDispatch, name);
+        LOG_ERROR("executing callback on name: %s, isMainThread(): %d", name, isMainThread());
         auto returnValue = callback(userData);
+        LOG_ERROR("executed callback on name: %s, isMainThread(): %d, ret: %d", name, isMainThread(), returnValue);
         runLoopSource.runLoop->notify(RunLoop::Event::DidDispatch, name);
         return returnValue;
     },
@@ -62,6 +64,8 @@ GSourceFuncs RunLoop::s_runLoopSourceFunctions = {
 RunLoop::RunLoop()
 {
     m_mainContext = g_main_context_get_thread_default();
+    if (isMainThread())
+        ASSERT(!m_mainContext);
     if (!m_mainContext)
         m_mainContext = isMainThread() ? g_main_context_default() : adoptGRef(g_main_context_new());
     ASSERT(m_mainContext);
@@ -88,8 +92,12 @@ RunLoop::~RunLoop()
     g_source_destroy(m_source.get());
 
     for (int i = m_mainLoops.size() - 1; i >= 0; --i) {
-        if (!g_main_loop_is_running(m_mainLoops[i].get()))
-            continue;
+        if (!g_main_loop_is_running(m_mainLoops[i].get())) {
+            LOG_ERROR("RunLoop not running %d isMainThread(): %d", i, isMainThread());
+            //continue;
+        } else {
+            LOG_ERROR("RunLoop running %d isMainThread(): %d", i, isMainThread());
+        }
         g_main_loop_quit(m_mainLoops[i].get());
     }
 }
@@ -104,18 +112,20 @@ void RunLoop::run()
 
     GMainLoop* innermostLoop = runLoop.m_mainLoops[0].get();
     if (!g_main_loop_is_running(innermostLoop)) {
+        LOG_ERROR("!g_main_loop_is_running isMainThread(): %d", isMainThread());
         g_main_context_push_thread_default(mainContext);
         g_main_loop_run(innermostLoop);
         g_main_context_pop_thread_default(mainContext);
         return;
     }
+    LOG_ERROR("g_main_loop_is_running isMainThread(): %d", isMainThread());
 
     // Create and run a nested loop if the innermost one was already running.
-    GMainLoop* nestedMainLoop = g_main_loop_new(mainContext, FALSE);
-    runLoop.m_mainLoops.append(adoptGRef(nestedMainLoop));
+    GRefPtr<GMainLoop> nestedMainLoop = adoptGRef(g_main_loop_new(mainContext, FALSE));
+    runLoop.m_mainLoops.append(nestedMainLoop);
 
     g_main_context_push_thread_default(mainContext);
-    g_main_loop_run(nestedMainLoop);
+    g_main_loop_run(nestedMainLoop.get());
     g_main_context_pop_thread_default(mainContext);
 
     runLoop.m_mainLoops.removeLast();
@@ -137,7 +147,7 @@ void RunLoop::wakeUp()
 
 RunLoop::CycleResult RunLoop::cycle(RunLoopMode)
 {
-    g_main_context_iteration(NULL, FALSE);
+    g_main_context_iteration(nullptr, FALSE);
     return CycleResult::Continue;
 }
 

@@ -48,7 +48,7 @@ void WorkQueueBase::platformInitialize(const char* name, Type, QOS qos)
 #endif
         m_runLoop = &RunLoop::current();
         semaphore.signal();
-        m_runLoop->run();
+        WTF::RunLoop::run();
     }, ThreadType::Unknown, qos)->detach();
     semaphore.wait();
 }

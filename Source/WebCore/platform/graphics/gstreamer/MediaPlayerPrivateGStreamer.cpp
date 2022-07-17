@@ -3366,7 +3366,7 @@ void MediaPlayerPrivateGStreamer::updateVideoOrientation(const GstTagList* tagLi
     if (m_videoSourceOrientation.usesWidthAsHeight())
         m_videoSize = m_videoSize.transposedSize();
 
-    callOnMainThreadAndWait([this] {
+    callOnMainThread([this] {
         m_player->sizeChanged();
     });
 }
