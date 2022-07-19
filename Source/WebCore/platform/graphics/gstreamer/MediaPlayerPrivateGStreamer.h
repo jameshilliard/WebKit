@@ -261,21 +261,21 @@ protected:
     static bool isAvailable();
 
     virtual void durationChanged();
-    virtual void sourceSetup(GstElement*);
-    virtual bool changePipelineState(GstState);
+    virtual void sourceSetup(GRefPtr<GstElement>);
+    virtual GstStateChangeReturn changePipelineState(GstState);
     virtual void updatePlaybackRate();
 
 #if USE(GSTREAMER_HOLEPUNCH)
-    GstElement* createHolePunchVideoSink();
+    GRefPtr<GstElement> createHolePunchVideoSink();
     void pushNextHolePunchBuffer();
     bool shouldIgnoreIntrinsicSize() final { return true; }
 #endif
 
 #if USE(TEXTURE_MAPPER_DMABUF)
-    GstElement* createVideoSinkDMABuf();
+    GRefPtr<GstElement> createVideoSinkDMABuf();
 #endif
 #if USE(GSTREAMER_GL)
-    GstElement* createVideoSinkGL();
+    GRefPtr<GstElement> createVideoSinkGL();
 #endif
 
 #if USE(TEXTURE_MAPPER_GL)
@@ -363,6 +363,7 @@ protected:
     GRefPtr<GstElement> m_audioSink;
     GRefPtr<GstElement> m_videoSink;
     GRefPtr<GstElement> m_pipeline;
+    GRefPtr<GstBus> m_bus;
     IntSize m_size;
 
     MediaPlayer::ReadyState m_readyState { MediaPlayer::ReadyState::HaveNothing };
@@ -438,8 +439,8 @@ private:
     void fillTimerFired();
     void didEnd();
 
-    GstElement* createVideoSink();
-    GstElement* createAudioSink();
+    GRefPtr<GstElement> createVideoSink();
+    GRefPtr<GstElement> createAudioSink();
     GstElement* audioSink() const;
 
     friend class MediaPlayerFactoryGStreamer;
@@ -476,11 +477,11 @@ private:
     bool canSaveMediaData() const override;
 
     void purgeOldDownloadFiles(const String& downloadFilePrefixPath);
-    void configureDownloadBuffer(GstElement*);
+    void configureDownloadBuffer(GRefPtr<GstElement>);
     static void downloadBufferFileCreatedCallback(MediaPlayerPrivateGStreamer*);
 
-    void configureDepayloader(GstElement*);
-    void configureVideoDecoder(GstElement*);
+    void configureDepayloader(GRefPtr<GstElement>);
+    void configureVideoDecoder(GRefPtr<GstElement>);
 
     void setPlaybinURL(const URL& urlString);
 

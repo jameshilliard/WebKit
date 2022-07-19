@@ -33,7 +33,7 @@ public:
     GStreamerAudioCapturer(GStreamerCaptureDevice);
     GStreamerAudioCapturer();
 
-    GstElement* createConverter() final;
+    GRefPtr<GstElement> createConverter() final;
     const char* name() final { return "Audio"; }
 
     bool setSampleRate(int);

@@ -247,7 +247,7 @@ void AudioFileReader::handleNewDeinterleavePad(GstPad* pad)
     // in an appsink so we can pull the data from each
     // channel. Pipeline looks like:
     // ... deinterleave ! appsink.
-    GstElement* sink = makeGStreamerElement("appsink", nullptr);
+    GRefPtr<GstElement> sink = makeGStreamerElement("appsink", nullptr);
 
     m_channels++;
 
@@ -264,16 +264,16 @@ void AudioFileReader::handleNewDeinterleavePad(GstPad* pad)
 #endif
         { nullptr }
     };
-    gst_app_sink_set_callbacks(GST_APP_SINK(sink), &callbacks, this, nullptr);
+    gst_app_sink_set_callbacks(GST_APP_SINK(sink.get()), &callbacks, this, nullptr);
 
-    g_object_set(sink, "sync", FALSE, "async", FALSE, "enable-last-sample", FALSE, nullptr);
+    g_object_set(sink.get(), "sync", FALSE, "async", FALSE, "enable-last-sample", FALSE, nullptr);
 
-    gst_bin_add(GST_BIN_CAST(m_pipeline.get()), sink);
+    gst_bin_add(GST_BIN_CAST(m_pipeline.get()), sink.get());
 
-    auto sinkPad = adoptGRef(gst_element_get_static_pad(sink, "sink"));
+    auto sinkPad = adoptGRef(gst_element_get_static_pad(sink.get(), "sink"));
     gst_pad_link_full(pad, sinkPad.get(), GST_PAD_LINK_CHECK_NOTHING);
 
-    gst_element_sync_state_with_parent(sink);
+    gst_element_sync_state_with_parent(sink.get());
 }
 
 void AudioFileReader::deinterleavePadsConfigured()
@@ -296,9 +296,9 @@ void AudioFileReader::plugDeinterleave(GstPad* pad)
     // A decodebin pad was added, plug in a deinterleave element to
     // separate each planar channel. Sub pipeline looks like
     // ... decodebin2 ! audioconvert ! audioresample ! capsfilter ! deinterleave.
-    GstElement* audioConvert  = makeGStreamerElement("audioconvert", nullptr);
-    GstElement* audioResample = makeGStreamerElement("audioresample", nullptr);
-    GstElement* capsFilter = gst_element_factory_make("capsfilter", nullptr);
+    GRefPtr<GstElement> audioConvert  = makeGStreamerElement("audioconvert", nullptr);
+    GRefPtr<GstElement> audioResample = makeGStreamerElement("audioresample", nullptr);
+    GRefPtr<GstElement> capsFilter = gst_element_factory_make("capsfilter", nullptr);
     m_deInterleave = makeGStreamerElement("deinterleave", "deinterleave");
 
     g_object_set(m_deInterleave.get(), "keep-positions", TRUE, nullptr);
@@ -307,20 +307,20 @@ void AudioFileReader::plugDeinterleave(GstPad* pad)
 
     auto caps = adoptGRef(gst_caps_new_simple("audio/x-raw", "rate", G_TYPE_INT, static_cast<int>(m_sampleRate),
         "format", G_TYPE_STRING, GST_AUDIO_NE(F32), "layout", G_TYPE_STRING, "interleaved", nullptr));
-    g_object_set(capsFilter, "caps", caps.get(), nullptr);
+    g_object_set(capsFilter.get(), "caps", caps.get(), nullptr);
 
-    gst_bin_add_many(GST_BIN(m_pipeline.get()), audioConvert, audioResample, capsFilter, m_deInterleave.get(), nullptr);
+    gst_bin_add_many(GST_BIN(m_pipeline.get()), audioConvert.get(), audioResample.get(), capsFilter.get(), m_deInterleave.get(), nullptr);
 
-    auto sinkPad = adoptGRef(gst_element_get_static_pad(audioConvert, "sink"));
+    auto sinkPad = adoptGRef(gst_element_get_static_pad(audioConvert.get(), "sink"));
     gst_pad_link_full(pad, sinkPad.get(), GST_PAD_LINK_CHECK_NOTHING);
 
-    gst_element_link_pads_full(audioConvert, "src", audioResample, "sink", GST_PAD_LINK_CHECK_NOTHING);
-    gst_element_link_pads_full(audioResample, "src", capsFilter, "sink", GST_PAD_LINK_CHECK_NOTHING);
-    gst_element_link_pads_full(capsFilter, "src", m_deInterleave.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(audioConvert.get(), "src", audioResample.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(audioResample.get(), "src", capsFilter.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(capsFilter.get(), "src", m_deInterleave.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
 
-    gst_element_sync_state_with_parent(audioConvert);
-    gst_element_sync_state_with_parent(audioResample);
-    gst_element_sync_state_with_parent(capsFilter);
+    gst_element_sync_state_with_parent(audioConvert.get());
+    gst_element_sync_state_with_parent(audioResample.get());
+    gst_element_sync_state_with_parent(capsFilter.get());
     gst_element_sync_state_with_parent(m_deInterleave.get());
 }
 
@@ -353,15 +353,15 @@ void AudioFileReader::decodeAudioForBusCreation()
 
     ASSERT(m_data);
     ASSERT(m_dataSize);
-    auto* source = makeGStreamerElement("giostreamsrc", nullptr);
+    auto source = makeGStreamerElement("giostreamsrc", nullptr);
     auto memoryStream = adoptGRef(g_memory_input_stream_new_from_data(m_data, m_dataSize, nullptr));
-    g_object_set(source, "stream", memoryStream.get(), nullptr);
+    g_object_set(source.get(), "stream", memoryStream.get(), nullptr);
 
     m_decodebin = makeGStreamerElement("decodebin", "decodebin");
     g_signal_connect_swapped(m_decodebin.get(), "pad-added", G_CALLBACK(decodebinPadAddedCallback), this);
 
-    gst_bin_add_many(GST_BIN(m_pipeline.get()), source, m_decodebin.get(), nullptr);
-    gst_element_link_pads_full(source, "src", m_decodebin.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_bin_add_many(GST_BIN(m_pipeline.get()), source.get(), m_decodebin.get(), nullptr);
+    gst_element_link_pads_full(source.get(), "src", m_decodebin.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
 
     // Catch errors here immediately, there might not be an error message if we're unlucky.
     if (gst_element_set_state(m_pipeline.get(), GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE) {

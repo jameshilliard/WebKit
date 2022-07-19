@@ -37,12 +37,12 @@ RealtimeIncomingSourceGStreamer::RealtimeIncomingSourceGStreamer()
     m_tee = gst_element_factory_make("tee", nullptr);
     g_object_set(m_tee.get(), "allow-not-linked", true, nullptr);
 
-    auto* queue = gst_element_factory_make("queue", nullptr);
-    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_valve.get(), queue, m_tee.get(), nullptr);
+    GRefPtr<GstElement> queue = gst_element_factory_make("queue", nullptr);
+    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_valve.get(), queue.get(), m_tee.get(), nullptr);
 
-    gst_element_link_many(m_valve.get(), queue, m_tee.get(), nullptr);
+    gst_element_link_many(m_valve.get(), queue.get(), m_tee.get(), nullptr);
     gst_element_sync_state_with_parent(m_valve.get());
-    gst_element_sync_state_with_parent(queue);
+    gst_element_sync_state_with_parent(queue.get());
     gst_element_sync_state_with_parent(m_tee.get());
 
     auto sinkPad = adoptGRef(gst_element_get_static_pad(m_valve.get(), "sink"));
@@ -64,25 +64,25 @@ void RealtimeIncomingSourceGStreamer::openValve() const
 void RealtimeIncomingSourceGStreamer::registerClient()
 {
     GST_DEBUG("Registering new client");
-    auto* queue = gst_element_factory_make("queue", nullptr);
-    auto* sink = gst_element_factory_make("appsink", nullptr);
-    g_object_set(sink, "enable-last-sample", FALSE, "emit-signals", TRUE, "max-buffers", 1, nullptr);
-    g_signal_connect_swapped(sink, "new-sample", G_CALLBACK(+[](RealtimeIncomingSourceGStreamer* self, GstElement* sink) -> GstFlowReturn {
+    GRefPtr<GstElement> queue = gst_element_factory_make("queue", nullptr);
+    GRefPtr<GstElement> sink = gst_element_factory_make("appsink", nullptr);
+    g_object_set(sink.get(), "enable-last-sample", FALSE, "emit-signals", TRUE, "max-buffers", 1, nullptr);
+    g_signal_connect_swapped(sink.get(), "new-sample", G_CALLBACK(+[](RealtimeIncomingSourceGStreamer* self, GstElement* sink) -> GstFlowReturn {
         auto sample = adoptGRef(gst_app_sink_pull_sample(GST_APP_SINK(sink)));
         self->dispatchSample(WTFMove(sample));
         return GST_FLOW_OK;
     }), this);
 
-    g_signal_connect_swapped(sink, "new-preroll", G_CALLBACK(+[](RealtimeIncomingSourceGStreamer* self, GstElement* sink) -> GstFlowReturn {
+    g_signal_connect_swapped(sink.get(), "new-preroll", G_CALLBACK(+[](RealtimeIncomingSourceGStreamer* self, GstElement* sink) -> GstFlowReturn {
         auto sample = adoptGRef(gst_app_sink_pull_preroll(GST_APP_SINK(sink)));
         self->dispatchSample(WTFMove(sample));
         return GST_FLOW_OK;
     }), this);
 
-    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), queue, sink, nullptr);
-    gst_element_link_many(m_tee.get(), queue, sink, nullptr);
-    gst_element_sync_state_with_parent(queue);
-    gst_element_sync_state_with_parent(sink);
+    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), queue.get(), sink.get(), nullptr);
+    gst_element_link_many(m_tee.get(), queue.get(), sink.get(), nullptr);
+    gst_element_sync_state_with_parent(queue.get());
+    gst_element_sync_state_with_parent(sink.get());
 
 #ifndef GST_DISABLE_GST_DEBUG
     auto dotFileName = makeString(GST_OBJECT_NAME(m_bin.get()), ".incoming");

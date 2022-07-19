@@ -68,20 +68,20 @@ void webKitTextCombinerHandleCaps(WebKitTextCombiner* combiner, GstPad* pad, con
         // Caps are plain text, we want a WebVTT encoder between the ghostpad and the combinerElement.
         if (!target || gstElementFactoryEquals(targetParent.get(), "webvttenc"_s)) {
             GST_DEBUG_OBJECT(combiner, "Setting up a WebVTT encoder");
-            auto* encoder = makeGStreamerElement("webvttenc", nullptr);
-            ASSERT(encoder);
+            auto encoder = makeGStreamerElement("webvttenc", nullptr);
+            ASSERT(encoder.get());
 
-            gst_bin_add(GST_BIN_CAST(combiner), encoder);
-            gst_element_sync_state_with_parent(encoder);
+            gst_bin_add(GST_BIN_CAST(combiner), encoder.get());
+            gst_element_sync_state_with_parent(encoder.get());
 
             // Switch the ghostpad to target the WebVTT encoder.
-            auto sinkPad = adoptGRef(gst_element_get_static_pad(encoder, "sink"));
+            auto sinkPad = adoptGRef(gst_element_get_static_pad(encoder.get(), "sink"));
             ASSERT(sinkPad);
 
             gst_ghost_pad_set_target(GST_GHOST_PAD(pad), sinkPad.get());
 
             // Connect the WebVTT encoder to the combinerElement.
-            auto srcPad = adoptGRef(gst_element_get_static_pad(encoder, "src"));
+            auto srcPad = adoptGRef(gst_element_get_static_pad(encoder.get(), "src"));
             ASSERT(srcPad);
 
             gst_pad_link(srcPad.get(), internalPad.get());
@@ -93,34 +93,34 @@ void webKitTextCombinerHandleCaps(WebKitTextCombiner* combiner, GstPad* pad, con
         }
 
         GST_DEBUG_OBJECT(combiner, "Converting CEA-608 closed captions to WebVTT.");
-        auto* encoder = gst_bin_new(nullptr);
-        auto* queue = gst_element_factory_make("queue", nullptr);
-        auto* converter = makeGStreamerElement("ccconverter", nullptr);
-        auto* rawCapsFilter = gst_element_factory_make("capsfilter", nullptr);
-        auto* webvttEncoder = makeGStreamerElement("cea608tott", nullptr);
-        auto* vttCapsFilter = gst_element_factory_make("capsfilter", nullptr);
+        GRefPtr<GstElement> encoder = gst_bin_new(nullptr);
+        GRefPtr<GstElement> queue = gst_element_factory_make("queue", nullptr);
+        auto converter = makeGStreamerElement("ccconverter", nullptr);
+        GRefPtr<GstElement> rawCapsFilter = gst_element_factory_make("capsfilter", nullptr);
+        auto webvttEncoder = makeGStreamerElement("cea608tott", nullptr);
+        GRefPtr<GstElement> vttCapsFilter = gst_element_factory_make("capsfilter", nullptr);
 
         auto rawCaps = adoptGRef(gst_caps_new_simple("closedcaption/x-cea-608", "format", G_TYPE_STRING, "raw", nullptr));
-        g_object_set(rawCapsFilter, "caps", rawCaps.get(), nullptr);
+        g_object_set(rawCapsFilter.get(), "caps", rawCaps.get(), nullptr);
         auto vttCaps = adoptGRef(gst_caps_new_empty_simple("application/x-subtitle-vtt"));
-        g_object_set(vttCapsFilter, "caps", vttCaps.get(), nullptr);
+        g_object_set(vttCapsFilter.get(), "caps", vttCaps.get(), nullptr);
 
-        gst_bin_add_many(GST_BIN_CAST(encoder), queue, converter, rawCapsFilter, webvttEncoder, vttCapsFilter, nullptr);
-        gst_element_link_many(queue, converter, rawCapsFilter, webvttEncoder, vttCapsFilter, nullptr);
+        gst_bin_add_many(GST_BIN_CAST(encoder.get()), queue.get(), converter.get(), rawCapsFilter.get(), webvttEncoder.get(), vttCapsFilter.get(), nullptr);
+        gst_element_link_many(queue.get(), converter.get(), rawCapsFilter.get(), webvttEncoder.get(), vttCapsFilter.get(), nullptr);
 
-        auto encoderSinkPad = adoptGRef(gst_element_get_static_pad(queue, "sink"));
-        auto* ghostSinkPad = gst_ghost_pad_new("sink", encoderSinkPad.get());
-        gst_element_add_pad(encoder, ghostSinkPad);
+        auto encoderSinkPad = adoptGRef(gst_element_get_static_pad(queue.get(), "sink"));
+        auto ghostSinkPad = adoptGRef(gst_ghost_pad_new("sink", encoderSinkPad.get()));
+        gst_element_add_pad(encoder.get(), ghostSinkPad.get());
 
-        auto encoderSrcPad = adoptGRef(gst_element_get_static_pad(vttCapsFilter, "src"));
-        auto* ghostSrcPad = gst_ghost_pad_new("src", encoderSrcPad.get());
-        gst_element_add_pad(encoder, ghostSrcPad);
+        auto encoderSrcPad = adoptGRef(gst_element_get_static_pad(vttCapsFilter.get(), "src"));
+        auto ghostSrcPad = adoptGRef(gst_ghost_pad_new("src", encoderSrcPad.get()));
+        gst_element_add_pad(encoder.get(), ghostSrcPad.get());
 
-        gst_bin_add(GST_BIN_CAST(combiner), encoder);
-        gst_element_sync_state_with_parent(encoder);
+        gst_bin_add(GST_BIN_CAST(combiner), encoder.get());
+        gst_element_sync_state_with_parent(encoder.get());
 
-        gst_ghost_pad_set_target(GST_GHOST_PAD(pad), ghostSinkPad);
-        gst_pad_link(ghostSrcPad, internalPad.get());
+        gst_ghost_pad_set_target(GST_GHOST_PAD(pad), ghostSinkPad.get());
+        gst_pad_link(ghostSrcPad.get(), internalPad.get());
     } else {
         // Caps are not plain text or CEA-608, we assume it's WebVTT.
 

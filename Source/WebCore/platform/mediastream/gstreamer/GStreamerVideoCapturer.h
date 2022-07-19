@@ -34,8 +34,8 @@ public:
     GStreamerVideoCapturer(GStreamerCaptureDevice);
     GStreamerVideoCapturer(const char* sourceFactory, CaptureDevice::DeviceType);
 
-    GstElement* createSource() final;
-    GstElement* createConverter() final;
+    GRefPtr<GstElement> createSource() final;
+    GRefPtr<GstElement> createConverter() final;
     const char* name() final { return "Video"; }
 
     using NodeAndFD = std::pair<uint32_t, int>;

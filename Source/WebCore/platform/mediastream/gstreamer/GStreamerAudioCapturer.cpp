@@ -47,26 +47,26 @@ GStreamerAudioCapturer::GStreamerAudioCapturer()
 {
 }
 
-GstElement* GStreamerAudioCapturer::createConverter()
+GRefPtr<GstElement> GStreamerAudioCapturer::createConverter()
 {
-    auto* bin = gst_bin_new(nullptr);
-    auto* audioconvert = gst_element_factory_make("audioconvert", nullptr);
-    auto* audioresample = gst_element_factory_make("audioresample", nullptr);
-    gst_bin_add_many(GST_BIN_CAST(bin), audioconvert, audioresample, nullptr);
-    gst_element_link(audioconvert, audioresample);
+    GRefPtr<GstElement> bin = gst_bin_new(nullptr);
+    GRefPtr<GstElement> audioconvert = gst_element_factory_make("audioconvert", nullptr);
+    GRefPtr<GstElement> audioresample = gst_element_factory_make("audioresample", nullptr);
+    gst_bin_add_many(GST_BIN_CAST(bin.get()), audioconvert.get(), audioresample.get(), nullptr);
+    gst_element_link(audioconvert.get(), audioresample.get());
 
 #if USE(GSTREAMER_WEBRTC)
-    if (auto* webrtcdsp = makeGStreamerElement("webrtcdsp", nullptr)) {
-        g_object_set(webrtcdsp, "echo-cancel", false, "voice-detection", true, nullptr);
-        gst_bin_add(GST_BIN_CAST(bin), webrtcdsp);
-        gst_element_link(webrtcdsp, audioconvert);
+    if (auto webrtcdsp = makeGStreamerElement("webrtcdsp", nullptr)) {
+        g_object_set(webrtcdsp.get(), "echo-cancel", false, "voice-detection", true, nullptr);
+        gst_bin_add(GST_BIN_CAST(bin.get()), webrtcdsp.get());
+        gst_element_link(webrtcdsp.get(), audioconvert.get());
     }
 #endif
 
-    if (auto pad = adoptGRef(gst_bin_find_unlinked_pad(GST_BIN_CAST(bin), GST_PAD_SRC)))
-        gst_element_add_pad(GST_ELEMENT_CAST(bin), gst_ghost_pad_new("src", pad.get()));
-    if (auto pad = adoptGRef(gst_bin_find_unlinked_pad(GST_BIN_CAST(bin), GST_PAD_SINK)))
-        gst_element_add_pad(GST_ELEMENT_CAST(bin), gst_ghost_pad_new("sink", pad.get()));
+    if (auto pad = adoptGRef(gst_bin_find_unlinked_pad(GST_BIN_CAST(bin.get()), GST_PAD_SRC)))
+        gst_element_add_pad(GST_ELEMENT_CAST(bin.get()), gst_ghost_pad_new("src", pad.get()));
+    if (auto pad = adoptGRef(gst_bin_find_unlinked_pad(GST_BIN_CAST(bin.get()), GST_PAD_SINK)))
+        gst_element_add_pad(GST_ELEMENT_CAST(bin.get()), gst_ghost_pad_new("sink", pad.get()));
 
     return bin;
 }

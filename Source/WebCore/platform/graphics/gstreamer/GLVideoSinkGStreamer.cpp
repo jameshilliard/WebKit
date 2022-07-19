@@ -70,23 +70,23 @@ static void webKitGLVideoSinkConstructed(GObject* object)
     ASSERT(sink->priv->appSink);
     g_object_set(sink->priv->appSink.get(), "enable-last-sample", FALSE, "emit-signals", TRUE, "max-buffers", 1, nullptr);
 
-    auto* imxVideoConvertG2D =
-        []() -> GstElement*
+    GRefPtr<GstElement> imxVideoConvertG2D =
+        []() -> GRefPtr<GstElement>
         {
             auto elementFactor = adoptGRef(gst_element_factory_find("imxvideoconvert_g2d"));
             if (elementFactor)
-                return gst_element_factory_create(elementFactor.get(), nullptr);
+                return adoptGRef(gst_element_factory_create(elementFactor.get(), nullptr));
             return nullptr;
         }();
     if (imxVideoConvertG2D)
-        gst_bin_add(GST_BIN_CAST(sink), imxVideoConvertG2D);
+        gst_bin_add(GST_BIN_CAST(sink), imxVideoConvertG2D.get());
 
-    GstElement* upload = makeGStreamerElement("glupload", nullptr);
-    GstElement* colorconvert = makeGStreamerElement("glcolorconvert", nullptr);
+    GRefPtr<GstElement> upload = makeGStreamerElement("glupload", nullptr);
+    GRefPtr<GstElement> colorconvert = makeGStreamerElement("glcolorconvert", nullptr);
 
-    ASSERT(upload);
-    ASSERT(colorconvert);
-    gst_bin_add_many(GST_BIN_CAST(sink), upload, colorconvert, sink->priv->appSink.get(), nullptr);
+    ASSERT(upload.get());
+    ASSERT(colorconvert.get());
+    gst_bin_add_many(GST_BIN_CAST(sink), upload.get(), colorconvert.get(), sink->priv->appSink.get(), nullptr);
 
     // Workaround until we can depend on GStreamer 1.16.2.
     // https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/commit/8d32de090554cf29fe359f83aa46000ba658a693
@@ -111,18 +111,18 @@ static void webKitGLVideoSinkConstructed(GObject* object)
     g_object_set(sink->priv->appSink.get(), "caps", caps.get(), nullptr);
 
     if (imxVideoConvertG2D)
-        gst_element_link(imxVideoConvertG2D, upload);
-    gst_element_link(upload, colorconvert);
+        gst_element_link(imxVideoConvertG2D.get(), upload.get());
+    gst_element_link(upload.get(), colorconvert.get());
 
-    gst_element_link(colorconvert, sink->priv->appSink.get());
+    gst_element_link(colorconvert.get(), sink->priv->appSink.get());
 
-    GstElement* sinkElement =
+    GRefPtr<GstElement> sinkElement =
         [&] {
             if (imxVideoConvertG2D)
                 return imxVideoConvertG2D;
             return upload;
         }();
-    GRefPtr<GstPad> pad = adoptGRef(gst_element_get_static_pad(sinkElement, "sink"));
+    GRefPtr<GstPad> pad = adoptGRef(gst_element_get_static_pad(sinkElement.get(), "sink"));
     gst_element_add_pad(GST_ELEMENT_CAST(sink), gst_ghost_pad_new("sink", pad.get()));
 }
 

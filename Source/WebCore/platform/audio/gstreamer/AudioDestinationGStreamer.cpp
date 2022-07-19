@@ -150,14 +150,14 @@ AudioDestinationGStreamer::AudioDestinationGStreamer(AudioIOCallback& callback, 
         }
     }
 
-    GstElement* audioConvert = makeGStreamerElement("audioconvert", nullptr);
-    GstElement* audioResample = makeGStreamerElement("audioresample", nullptr);
-    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), audioConvert, audioResample, audioSink.get(), nullptr);
+    GRefPtr<GstElement> audioConvert = makeGStreamerElement("audioconvert", nullptr);
+    GRefPtr<GstElement> audioResample = makeGStreamerElement("audioresample", nullptr);
+    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), audioConvert.get(), audioResample.get(), audioSink.get(), nullptr);
 
     // Link src pads from webkitAudioSrc to audioConvert ! audioResample ! autoaudiosink.
-    gst_element_link_pads_full(m_src.get(), "src", audioConvert, "sink", GST_PAD_LINK_CHECK_NOTHING);
-    gst_element_link_pads_full(audioConvert, "src", audioResample, "sink", GST_PAD_LINK_CHECK_NOTHING);
-    gst_element_link_pads_full(audioResample, "src", audioSink.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(m_src.get(), "src", audioConvert.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(audioConvert.get(), "src", audioResample.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
+    gst_element_link_pads_full(audioResample.get(), "src", audioSink.get(), "sink", GST_PAD_LINK_CHECK_NOTHING);
 }
 
 AudioDestinationGStreamer::~AudioDestinationGStreamer()

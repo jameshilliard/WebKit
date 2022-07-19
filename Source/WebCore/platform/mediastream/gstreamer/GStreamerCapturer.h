@@ -56,9 +56,9 @@ public:
     void play();
     void stop();
     GstCaps* caps();
-    void addSink(GstElement *newSink);
-    GstElement* makeElement(const char* factoryName);
-    virtual GstElement* createSource();
+    void addSink(GRefPtr<GstElement> newSink);
+    GRefPtr<GstElement> makeElement(const char* factoryName);
+    virtual GRefPtr<GstElement> createSource();
     GstElement* source() { return m_src.get();  }
     virtual const char* name() = 0;
 
@@ -66,7 +66,7 @@ public:
     void setSink(GstElement* sink) { m_sink = adoptGRef(sink); };
 
     GstElement* pipeline() const { return m_pipeline.get(); }
-    virtual GstElement* createConverter() = 0;
+    virtual GRefPtr<GstElement> createConverter() = 0;
 
     bool isInterrupted() const;
     void setInterrupted(bool);

@@ -369,18 +369,20 @@ static void webKitWebSrcGetProperty(GObject* object, guint propID, GValue* value
     }
 }
 
-static void webKitWebSrcSetContext(GstElement* element, GstContext* context)
+static void webKitWebSrcSetContext(GstElement* elem, GstContext* ctx)
 {
-    WebKitWebSrc* src = WEBKIT_WEB_SRC(element);
+    GRefPtr<GstElement> element = adoptGRef(elem);
+    GRefPtr<GstContext> context = adoptGRef(ctx);
+    WebKitWebSrc* src = WEBKIT_WEB_SRC(element.get());
     WebKitWebSrcPrivate* priv = src->priv;
 
-    GST_DEBUG_OBJECT(src, "context type: %s", gst_context_get_context_type(context));
-    if (gst_context_has_context_type(context, WEBKIT_WEB_SRC_PLAYER_CONTEXT_TYPE_NAME)) {
-        const GValue* value = gst_structure_get_value(gst_context_get_structure(context), "player");
+    GST_DEBUG_OBJECT(src, "context type: %s", gst_context_get_context_type(context.get()));
+    if (gst_context_has_context_type(context.get(), WEBKIT_WEB_SRC_PLAYER_CONTEXT_TYPE_NAME)) {
+        const GValue* value = gst_structure_get_value(gst_context_get_structure(context.get()), "player");
         DataMutexLocker members { priv->dataMutex };
         members->player = reinterpret_cast<MediaPlayer*>(g_value_get_pointer(value));
     }
-    GST_ELEMENT_CLASS(parent_class)->set_context(element, context);
+    GST_ELEMENT_CLASS(parent_class)->set_context(element.get(), context.get());
 }
 
 static void restartLoaderIfNeeded(WebKitWebSrc* src, DataMutexLocker<WebKitWebSrcPrivate::StreamingMembers>& members)

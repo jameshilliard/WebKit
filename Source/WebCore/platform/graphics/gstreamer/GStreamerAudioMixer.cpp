@@ -48,10 +48,10 @@ GStreamerAudioMixer::GStreamerAudioMixer()
     connectSimpleBusMessageCallback(m_pipeline.get());
 
     m_mixer = makeGStreamerElement("audiomixer", nullptr);
-    auto* audioSink = createAutoAudioSink({ });
+    auto audioSink = createAutoAudioSink({ });
 
-    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_mixer.get(), audioSink, nullptr);
-    gst_element_link(m_mixer.get(), audioSink);
+    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_mixer.get(), audioSink.get(), nullptr);
+    gst_element_link(m_mixer.get(), audioSink.get());
     gst_element_set_state(m_pipeline.get(), GST_STATE_READY);
 }
 
@@ -85,25 +85,25 @@ void GStreamerAudioMixer::ensureState(GstStateChange stateChange)
 
 GRefPtr<GstPad> GStreamerAudioMixer::registerProducer(GstElement* interaudioSink)
 {
-    GstElement* src = makeGStreamerElement("interaudiosrc", nullptr);
-    g_object_set(src, "channel", GST_ELEMENT_NAME(interaudioSink), nullptr);
+    GRefPtr<GstElement> src = makeGStreamerElement("interaudiosrc", nullptr);
+    g_object_set(src.get(), "channel", GST_ELEMENT_NAME(interaudioSink), nullptr);
     g_object_set(interaudioSink, "channel", GST_ELEMENT_NAME(interaudioSink), nullptr);
 
-    GstElement* audioResample = makeGStreamerElement("audioresample", nullptr);
-    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), src, audioResample, nullptr);
-    gst_element_link(src, audioResample);
+    GRefPtr<GstElement> audioResample = makeGStreamerElement("audioresample", nullptr);
+    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), src.get(), audioResample.get(), nullptr);
+    gst_element_link(src.get(), audioResample.get());
 
     bool shouldStart = !m_mixer->numsinkpads;
 
     auto mixerPad = adoptGRef(gst_element_request_pad_simple(m_mixer.get(), "sink_%u"));
-    auto srcPad = adoptGRef(gst_element_get_static_pad(audioResample, "src"));
+    auto srcPad = adoptGRef(gst_element_get_static_pad(audioResample.get(), "src"));
     gst_pad_link(srcPad.get(), mixerPad.get());
 
     if (shouldStart)
         gst_element_set_state(m_pipeline.get(), GST_STATE_READY);
     else {
-        gst_element_sync_state_with_parent(src);
-        gst_element_sync_state_with_parent(audioResample);
+        gst_element_sync_state_with_parent(src.get());
+        gst_element_sync_state_with_parent(audioResample.get());
     }
 
     GST_DEBUG_OBJECT(m_pipeline.get(), "Registered audio producer %" GST_PTR_FORMAT, mixerPad.get());

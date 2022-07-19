@@ -52,9 +52,9 @@ GStreamerVideoCapturer::GStreamerVideoCapturer(const char* sourceFactory, Captur
     initializeDebugCategory();
 }
 
-GstElement* GStreamerVideoCapturer::createSource()
+GRefPtr<GstElement> GStreamerVideoCapturer::createSource()
 {
-    auto* src = GStreamerCapturer::createSource();
+    auto src = GStreamerCapturer::createSource();
     if (m_nodeAndFd) {
         auto& [node, fd] = *m_nodeAndFd;
         auto path = AtomString::number(node);
@@ -65,44 +65,44 @@ GstElement* GStreamerVideoCapturer::createSource()
     return src;
 }
 
-GstElement* GStreamerVideoCapturer::createConverter()
+GRefPtr<GstElement> GStreamerVideoCapturer::createConverter()
 {
-    auto* bin = gst_bin_new(nullptr);
-    auto* videoscale = gst_element_factory_make("videoscale", "videoscale");
-    auto* videoconvert = gst_element_factory_make("videoconvert", nullptr);
-    auto* videorate = gst_element_factory_make("videorate", "videorate");
+    GRefPtr<GstElement> bin = gst_bin_new(nullptr);
+    GRefPtr<GstElement> videoscale = gst_element_factory_make("videoscale", "videoscale");
+    GRefPtr<GstElement> videoconvert =gst_element_factory_make("videoconvert", nullptr);
+    GRefPtr<GstElement> videorate = gst_element_factory_make("videorate", "videorate");
 
     // https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/97#note_56575
-    g_object_set(videorate, "drop-only", 1, "average-period", 1, nullptr);
+    g_object_set(videorate.get(), "drop-only", 1, "average-period", 1, nullptr);
 
-    gst_bin_add_many(GST_BIN_CAST(bin), videoscale, videoconvert, videorate, nullptr);
+    gst_bin_add_many(GST_BIN_CAST(bin.get()), videoscale.get(), videoconvert.get(), videorate.get(), nullptr);
 
-    GstElement* head = videoscale;
+    GRefPtr<GstElement> head = videoscale;
     if (!isCapturingDisplay()) {
         m_videoSrcMIMETypeFilter = gst_element_factory_make("capsfilter", "mimetype-filter");
-        head = m_videoSrcMIMETypeFilter.get();
+        head = m_videoSrcMIMETypeFilter;
 
         auto caps = adoptGRef(gst_caps_new_empty_simple("video/x-raw"));
         g_object_set(m_videoSrcMIMETypeFilter.get(), "caps", caps.get(), nullptr);
 
-        auto* decodebin = gst_element_factory_make("decodebin3", nullptr);
-        gst_bin_add_many(GST_BIN_CAST(bin), m_videoSrcMIMETypeFilter.get(), decodebin, nullptr);
-        gst_element_link(m_videoSrcMIMETypeFilter.get(), decodebin);
+        GRefPtr<GstElement> decodebin = gst_element_factory_make("decodebin3", nullptr);
+        gst_bin_add_many(GST_BIN_CAST(bin.get()), m_videoSrcMIMETypeFilter.get(), decodebin.get(), nullptr);
+        gst_element_link(m_videoSrcMIMETypeFilter.get(), decodebin.get());
 
-        auto sinkPad = adoptGRef(gst_element_get_static_pad(videoscale, "sink"));
-        g_signal_connect_swapped(decodebin, "pad-added", G_CALLBACK(+[](GstPad* sinkPad, GstPad* srcPad) {
+        auto sinkPad = adoptGRef(gst_element_get_static_pad(videoscale.get(), "sink"));
+        g_signal_connect_swapped(decodebin.get(), "pad-added", G_CALLBACK(+[](GstPad* sinkPad, GstPad* srcPad) {
             RELEASE_ASSERT(!gst_pad_is_linked(sinkPad));
             gst_pad_link(srcPad, sinkPad);
         }), sinkPad.get());
     }
 
-    gst_element_link_many(videoscale, videoconvert, videorate, nullptr);
+    gst_element_link_many(videoscale.get(), videoconvert.get(), videorate.get(), nullptr);
 
-    auto sinkPad = adoptGRef(gst_element_get_static_pad(head, "sink"));
-    gst_element_add_pad(bin, gst_ghost_pad_new("sink", sinkPad.get()));
+    auto sinkPad = adoptGRef(gst_element_get_static_pad(head.get(), "sink"));
+    gst_element_add_pad(bin.get(), gst_ghost_pad_new("sink", sinkPad.get()));
 
-    auto srcPad = adoptGRef(gst_element_get_static_pad(videorate, "src"));
-    gst_element_add_pad(bin, gst_ghost_pad_new("src", srcPad.get()));
+    auto srcPad = adoptGRef(gst_element_get_static_pad(videorate.get(), "src"));
+    gst_element_add_pad(bin.get(), gst_ghost_pad_new("src", srcPad.get()));
 
     return bin;
 }

@@ -248,7 +248,7 @@ void ImageDecoderGStreamer::InnerDecoder::connectDecoderPad(GstPad* pad)
     else if (!isVideo)
         return;
 
-    GstElement* sink = makeGStreamerElement("appsink", nullptr);
+    GRefPtr<GstElement> sink = makeGStreamerElement("appsink", nullptr);
     static GstAppSinkCallbacks callbacks = {
         nullptr,
         [](GstAppSink* sink, gpointer userData) -> GstFlowReturn {
@@ -267,19 +267,19 @@ void ImageDecoderGStreamer::InnerDecoder::connectDecoderPad(GstPad* pad)
 #endif
         { nullptr }
     };
-    gst_app_sink_set_callbacks(GST_APP_SINK(sink), &callbacks, &m_decoder, nullptr);
+    gst_app_sink_set_callbacks(GST_APP_SINK(sink.get()), &callbacks, &m_decoder, nullptr);
 
     GRefPtr<GstCaps> caps = adoptGRef(gst_caps_from_string("video/x-raw, format=(string)RGBA"));
-    g_object_set(sink, "sync", false, "caps", caps.get(), nullptr);
+    g_object_set(sink.get(), "sync", false, "caps", caps.get(), nullptr);
 
-    GstElement* videoconvert = makeGStreamerElement("videoconvert", nullptr);
+    GRefPtr<GstElement> videoconvert = makeGStreamerElement("videoconvert", nullptr);
 
-    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), videoconvert, sink, nullptr);
-    gst_element_link(videoconvert, sink);
-    auto sinkPad = adoptGRef(gst_element_get_static_pad(videoconvert, "sink"));
+    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), videoconvert.get(), sink.get(), nullptr);
+    gst_element_link(videoconvert.get(), sink.get());
+    auto sinkPad = adoptGRef(gst_element_get_static_pad(videoconvert.get(), "sink"));
     gst_pad_link(pad, sinkPad.get());
-    gst_element_sync_state_with_parent(videoconvert);
-    gst_element_sync_state_with_parent(sink);
+    gst_element_sync_state_with_parent(videoconvert.get());
+    gst_element_sync_state_with_parent(sink.get());
 }
 
 void ImageDecoderGStreamer::setHasEOS()
@@ -397,14 +397,14 @@ void ImageDecoderGStreamer::InnerDecoder::preparePipeline()
         return GST_BUS_DROP;
     }, this, nullptr);
 
-    GstElement* source = makeGStreamerElement("giostreamsrc", nullptr);
-    g_object_set(source, "stream", m_memoryStream.get(), nullptr);
+    GRefPtr<GstElement> source = makeGStreamerElement("giostreamsrc", nullptr);
+    g_object_set(source.get(), "stream", m_memoryStream.get(), nullptr);
 
     m_decodebin = makeGStreamerElement("decodebin3", nullptr);
     g_signal_connect_swapped(m_decodebin.get(), "pad-added", G_CALLBACK(decodebinPadAddedCallback), this);
 
-    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), source, m_decodebin.get(), nullptr);
-    gst_element_link(source, m_decodebin.get());
+    gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), source.get(), m_decodebin.get(), nullptr);
+    gst_element_link(source.get(), m_decodebin.get());
     gst_element_set_state(m_pipeline.get(), GST_STATE_PLAYING);
 }
 

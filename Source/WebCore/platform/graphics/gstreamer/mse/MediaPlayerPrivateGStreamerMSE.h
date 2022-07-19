@@ -66,7 +66,7 @@ public:
     std::unique_ptr<PlatformTimeRanges> buffered() const override;
     MediaTime maxMediaTimeSeekable() const override;
 
-    void sourceSetup(GstElement*) override;
+    void sourceSetup(GRefPtr<GstElement>) override;
 
     // return false to avoid false-positive "stalled" event - it should be soon addressed in the spec
     // see: https://github.com/w3c/media-source/issues/88

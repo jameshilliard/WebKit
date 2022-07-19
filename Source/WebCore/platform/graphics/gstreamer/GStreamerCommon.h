@@ -307,26 +307,26 @@ private:
 };
 
 
-void connectSimpleBusMessageCallback(GstElement*, Function<void(GstMessage*)>&& = [](GstMessage*) { });
-void disconnectSimpleBusMessageCallback(GstElement*);
+void connectSimpleBusMessageCallback(GRefPtr<GstElement>, Function<void(GstMessage*)>&& = [](GstMessage*) { });
+void disconnectSimpleBusMessageCallback(GRefPtr<GstElement>);
 
 enum class GstVideoDecoderPlatform { ImxVPU, Video4Linux, OpenMAX };
 
 bool isGStreamerPluginAvailable(const char* name);
-bool gstElementFactoryEquals(GstElement*, ASCIILiteral name);
+bool gstElementFactoryEquals(GRefPtr<GstElement>, ASCIILiteral name);
 
-GstElement* createAutoAudioSink(const String& role);
-GstElement* createPlatformAudioSink(const String& role);
+GRefPtr<GstElement> createAutoAudioSink(const String& role);
+GRefPtr<GstElement> createPlatformAudioSink(const String& role);
 
-bool webkitGstSetElementStateSynchronously(GstElement*, GstState, Function<bool(GstMessage*)>&& = [](GstMessage*) -> bool {
+bool webkitGstSetElementStateSynchronously(GRefPtr<GstElement>, GstState, Function<bool(GstMessage*)>&& = [](GstMessage*) -> bool {
     return true;
 });
 
 GstBuffer* gstBufferNewWrappedFast(void* data, size_t length);
 
 // These functions should be used for elements not provided by WebKit itself and not provided by GStreamer -core.
-GstElement* makeGStreamerElement(const char* factoryName, const char* name);
-GstElement* makeGStreamerBin(const char* description, bool ghostUnlinkedPads);
+GRefPtr<GstElement> makeGStreamerElement(const char* factoryName, const char* name);
+GRefPtr<GstElement> makeGStreamerBin(const char* description, bool ghostUnlinkedPads);
 
 String gstStructureToJSONString(const GstStructure*);
 

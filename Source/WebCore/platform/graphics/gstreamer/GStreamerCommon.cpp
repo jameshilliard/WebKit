@@ -423,10 +423,10 @@ uint64_t toGstUnsigned64Time(const MediaTime& mediaTime)
     return time.timeValue();
 }
 
-void disconnectSimpleBusMessageCallback(GstElement* pipeline)
+void disconnectSimpleBusMessageCallback(GRefPtr<GstElement> pipeline)
 {
-    auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
-    g_signal_handlers_disconnect_by_data(bus.get(), pipeline);
+    auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline.get())));
+    g_signal_handlers_disconnect_by_data(bus.get(), pipeline.get());
     gst_bus_remove_signal_watch(bus.get());
 }
 
@@ -438,18 +438,18 @@ struct CustomMessageHandlerHolder {
     Function<void(GstMessage*)> handler;
 };
 
-void connectSimpleBusMessageCallback(GstElement* pipeline, Function<void(GstMessage*)>&& customHandler)
+void connectSimpleBusMessageCallback(GRefPtr<GstElement> pipeline, Function<void(GstMessage*)>&& customHandler)
 {
-    auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
+    auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline.get())));
     gst_bus_add_signal_watch_full(bus.get(), RunLoopSourcePriority::RunLoopDispatcher);
 
     auto* holder = new CustomMessageHandlerHolder(WTFMove(customHandler));
     GQuark quark = g_quark_from_static_string("pipeline-custom-message-handler");
-    g_object_set_qdata_full(G_OBJECT(pipeline), quark, holder, [](gpointer data) {
+    g_object_set_qdata_full(G_OBJECT(pipeline.get()), quark, holder, [](gpointer data) {
         delete reinterpret_cast<CustomMessageHandlerHolder*>(data);
     });
 
-    g_signal_connect(bus.get(), "message", G_CALLBACK(+[](GstBus*, GstMessage* message, GstElement* pipeline) {
+    g_signal_connect(bus.get(), "message", G_CALLBACK(+[](GstBus*, GstMessage* message, GstMessage* pipeline) {
         switch (GST_MESSAGE_TYPE(message)) {
         case GST_MESSAGE_ERROR: {
             GST_ERROR_OBJECT(pipeline, "Got message: %" GST_PTR_FORMAT, message);
@@ -483,7 +483,7 @@ void connectSimpleBusMessageCallback(GstElement* pipeline, Function<void(GstMess
             return;
 
         holder->handler(message);
-    }), pipeline);
+    }), pipeline.get());
 }
 
 Vector<uint8_t> GstMappedBuffer::createVector() const
@@ -504,15 +504,15 @@ bool isGStreamerPluginAvailable(const char* name)
     return plugin;
 }
 
-bool gstElementFactoryEquals(GstElement* element, ASCIILiteral name)
+bool gstElementFactoryEquals(GRefPtr<GstElement> element, ASCIILiteral name)
 {
-    return name == GST_OBJECT_NAME(gst_element_get_factory(element));
+    return name == GST_OBJECT_NAME(gst_element_get_factory(element.get()));
 }
 
-GstElement* createAutoAudioSink(const String& role)
+GRefPtr<GstElement> createAutoAudioSink(const String& role)
 {
-    auto* audioSink = makeGStreamerElement("autoaudiosink", nullptr);
-    g_signal_connect_data(audioSink, "child-added", G_CALLBACK(+[](GstChildProxy*, GObject* object, gchar*, gpointer userData) {
+    auto audioSink = makeGStreamerElement("autoaudiosink", nullptr);
+    g_signal_connect_data(audioSink.get(), "child-added", G_CALLBACK(+[](GstChildProxy*, GObject* object, gchar*, gpointer userData) {
         auto* role = reinterpret_cast<StringImpl*>(userData);
         auto* objectClass = G_OBJECT_GET_CLASS(object);
         if (role && g_object_class_find_property(objectClass, "stream-properties")) {
@@ -530,10 +530,10 @@ GstElement* createAutoAudioSink(const String& role)
     return audioSink;
 }
 
-GstElement* createPlatformAudioSink(const String& role)
+GRefPtr<GstElement> createPlatformAudioSink(const String& role)
 {
-    GstElement* audioSink = webkitAudioSinkNew();
-    if (!audioSink) {
+    GRefPtr<GstElement> audioSink = webkitAudioSinkNew();
+    if (!audioSink.get()) {
         // This means the WebKit audio sink configuration failed. It can happen for the following reasons:
         // - audio mixing was not requested using the WEBKIT_GST_ENABLE_AUDIO_MIXER
         // - audio mixing was requested using the WEBKIT_GST_ENABLE_AUDIO_MIXER but the audio mixer
@@ -546,28 +546,30 @@ GstElement* createPlatformAudioSink(const String& role)
     return audioSink;
 }
 
-bool webkitGstSetElementStateSynchronously(GstElement* pipeline, GstState targetState, Function<bool(GstMessage*)>&& messageHandler)
+bool webkitGstSetElementStateSynchronously(GRefPtr<GstElement> pipeline, GstState targetState, Function<bool(GstMessage*)>&& messageHandler)
 {
-    GST_DEBUG_OBJECT(pipeline, "Setting state to %s", gst_element_state_get_name(targetState));
+    GST_DEBUG_OBJECT(pipeline.get(), "Setting state to %s", gst_element_state_get_name(targetState));
 
     GstState currentState;
-    auto result = gst_element_get_state(pipeline, &currentState, nullptr, 10);
+    auto result = gst_element_get_state(pipeline.get(), &currentState, nullptr, 10);
     if (result == GST_STATE_CHANGE_SUCCESS && currentState == targetState) {
-        GST_DEBUG_OBJECT(pipeline, "Target state already reached");
+        GST_DEBUG_OBJECT(pipeline.get(), "Target state already reached");
         return true;
     }
 
-    auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
+    auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline.get())));
+    gst_bus_add_signal_watch_full(bus.get(), RunLoopSourcePriority::RunLoopDispatcher);
     gst_bus_enable_sync_message_emission(bus.get());
 
     auto cleanup = makeScopeExit([bus = GRefPtr<GstBus>(bus), pipeline, targetState] {
         gst_bus_disable_sync_message_emission(bus.get());
+        gst_bus_remove_signal_watch(bus.get());
         GstState currentState;
-        auto result = gst_element_get_state(pipeline, &currentState, nullptr, 0);
-        GST_DEBUG_OBJECT(pipeline, "Task finished, result: %s, target state reached: %s", gst_element_state_change_return_get_name(result), boolForPrinting(currentState == targetState));
+        auto result = gst_element_get_state(pipeline.get(), &currentState, nullptr, 0);
+        GST_DEBUG_OBJECT(pipeline.get(), "Task finished, result: %s, target state reached: %s", gst_element_state_change_return_get_name(result), boolForPrinting(currentState == targetState));
     });
 
-    result = gst_element_set_state(pipeline, targetState);
+    result = gst_element_set_state(pipeline.get(), targetState);
     if (result == GST_STATE_CHANGE_FAILURE)
         return false;
 
@@ -576,7 +578,7 @@ bool webkitGstSetElementStateSynchronously(GstElement* pipeline, GstState target
             if (!messageHandler(message.get()))
                 return false;
 
-            result = gst_element_get_state(pipeline, &currentState, nullptr, 10);
+            result = gst_element_get_state(pipeline.get(), &currentState, nullptr, 10);
             if (result == GST_STATE_CHANGE_FAILURE)
                 return false;
 
@@ -592,19 +594,19 @@ GstBuffer* gstBufferNewWrappedFast(void* data, size_t length)
     return gst_buffer_new_wrapped_full(static_cast<GstMemoryFlags>(0), data, length, 0, length, data, fastFree);
 }
 
-GstElement* makeGStreamerElement(const char* factoryName, const char* name)
+GRefPtr<GstElement> makeGStreamerElement(const char* factoryName, const char* name)
 {
-    auto* element = gst_element_factory_make(factoryName, name);
-    if (!element)
+    GRefPtr<GstElement> element = gst_element_factory_make(factoryName, name);
+    if (!element.get())
         WTFLogAlways("GStreamer element %s not found. Please install it", factoryName);
     return element;
 }
 
-GstElement* makeGStreamerBin(const char* description, bool ghostUnlinkedPads)
+GRefPtr<GstElement> makeGStreamerBin(const char* description, bool ghostUnlinkedPads)
 {
     GUniqueOutPtr<GError> error;
-    auto* bin = gst_parse_bin_from_description(description, ghostUnlinkedPads, &error.outPtr());
-    if (!bin)
+    GRefPtr<GstElement> bin = adoptGRef(gst_parse_bin_from_description(description, ghostUnlinkedPads, &error.outPtr()));
+    if (!bin.get())
         WTFLogAlways("Unable to create bin for description: \"%s\". Error: %s", description, error->message);
     return bin;
 }

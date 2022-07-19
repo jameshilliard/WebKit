@@ -237,9 +237,6 @@ public:
             gst_pad_set_offset(pad.get(), -m_firstBufferPts);
         }
 
-        if (m_track.isVideo() && drop)
-            drop = doCapsHaveType(caps, "video/x-raw") || GST_BUFFER_FLAG_IS_SET(buffer, GST_BUFFER_FLAG_DELTA_UNIT);
-
         if (drop) {
             m_needsDiscont = true;
             GST_TRACE_OBJECT(m_src.get(), "%s queue full already... not pushing", m_track.isVideo() ? "Video" : "Audio");

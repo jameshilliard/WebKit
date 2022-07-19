@@ -262,10 +262,10 @@ std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateGStreamerMSE::buffered() c
     return m_mediaSource ? m_mediaSource->buffered() : makeUnique<PlatformTimeRanges>();
 }
 
-void MediaPlayerPrivateGStreamerMSE::sourceSetup(GstElement* sourceElement)
+void MediaPlayerPrivateGStreamerMSE::sourceSetup(GRefPtr<GstElement> sourceElement)
 {
-    ASSERT(WEBKIT_IS_MEDIA_SRC(sourceElement));
-    GST_DEBUG_OBJECT(pipeline(), "Source %p setup (old was: %p)", sourceElement, m_source.get());
+    ASSERT(WEBKIT_IS_MEDIA_SRC(sourceElement.get()));
+    GST_DEBUG_OBJECT(pipeline(), "Source %p setup (old was: %p)", sourceElement.get(), m_source.get());
     m_source = sourceElement;
 
     if (m_hasAllTracks)

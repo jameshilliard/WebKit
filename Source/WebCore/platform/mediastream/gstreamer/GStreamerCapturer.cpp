@@ -94,7 +94,7 @@ void GStreamerCapturer::forEachObserver(const Function<void(Observer&)>& apply)
     m_observers.forEach(apply);
 }
 
-GstElement* GStreamerCapturer::createSource()
+GRefPtr<GstElement> GStreamerCapturer::createSource()
 {
     if (m_sourceFactory) {
         m_src = makeElement(m_sourceFactory);
@@ -136,9 +136,9 @@ GstElement* GStreamerCapturer::createSource()
     ASSERT(m_device);
     GUniquePtr<char> sourceName(g_strdup_printf("%s_%p", name(), this));
     m_src = gst_device_create_element(m_device.get(), sourceName.get());
-    ASSERT(m_src);
+    ASSERT(m_src.get());
 
-    return m_src.get();
+    return m_src;
 }
 
 GstCaps* GStreamerCapturer::caps()
@@ -180,38 +180,38 @@ void GStreamerCapturer::setupPipeline()
     connectSimpleBusMessageCallback(pipeline());
 }
 
-GstElement* GStreamerCapturer::makeElement(const char* factoryName)
+GRefPtr<GstElement> GStreamerCapturer::makeElement(const char* factoryName)
 {
-    auto* element = makeGStreamerElement(factoryName, nullptr);
-    GUniquePtr<char> capturerName(g_strdup_printf("%s_capturer_%s_%p", name(), GST_OBJECT_NAME(element), this));
-    gst_object_set_name(GST_OBJECT(element), capturerName.get());
+    auto element = makeGStreamerElement(factoryName, nullptr);
+    GUniquePtr<char> capturerName(g_strdup_printf("%s_capturer_%s_%p", name(), GST_OBJECT_NAME(element.get()), this));
+    gst_object_set_name(GST_OBJECT(element.get()), capturerName.get());
 
     return element;
 }
 
-void GStreamerCapturer::addSink(GstElement* newSink)
+void GStreamerCapturer::addSink(GRefPtr<GstElement> newSink)
 {
     ASSERT(m_pipeline);
     ASSERT(m_tee);
 
     auto queue = makeElement("queue");
-    gst_bin_add_many(GST_BIN(pipeline()), queue, newSink, nullptr);
-    gst_element_sync_state_with_parent(queue);
-    gst_element_sync_state_with_parent(newSink);
+    gst_bin_add_many(GST_BIN(pipeline()), queue.get(), newSink.get(), nullptr);
+    gst_element_sync_state_with_parent(queue.get());
+    gst_element_sync_state_with_parent(newSink.get());
 
-    if (!gst_element_link_pads(m_tee.get(), "src_%u", queue, "sink")) {
+    if (!gst_element_link_pads(m_tee.get(), "src_%u", queue.get(), "sink")) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    if (!gst_element_link(queue, newSink)) {
+    if (!gst_element_link(queue.get(), newSink.get())) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    GST_INFO_OBJECT(pipeline(), "Adding sink: %" GST_PTR_FORMAT, newSink);
+    GST_INFO_OBJECT(pipeline(), "Adding sink: %" GST_PTR_FORMAT, newSink.get());
 
-    GUniquePtr<char> dumpName(g_strdup_printf("%s_sink_%s_added", GST_OBJECT_NAME(pipeline()), GST_OBJECT_NAME(newSink)));
+    GUniquePtr<char> dumpName(g_strdup_printf("%s_sink_%s_added", GST_OBJECT_NAME(pipeline()), GST_OBJECT_NAME(newSink.get())));
     GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN(pipeline()), GST_DEBUG_GRAPH_SHOW_ALL, dumpName.get());
 }
 
